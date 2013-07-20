@@ -11,6 +11,6 @@ object Application extends App {
   val service = system.actorOf(Props[WebServiceActor], "web-service")
 
   // start a new HTTP server on port 8080 with our service actor as the handler
-  IO(Http) ! Http.Bind(service, "", port = 8080)
+  IO(Http) ! Http.Bind(service, "localhost", port = 8080)
 
 }
