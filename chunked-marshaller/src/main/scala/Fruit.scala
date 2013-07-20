@@ -31,11 +31,11 @@ trait FruitMarshallers {
 
   def sendCSV(fruits: Seq[Fruit], responder: ActorRef): Unit = {
     responder ! MessageChunk("name\tkg\n")
-    fruits foreach {c => responder ! MessageChunk(c.toCSV()) }
+    fruits foreach {f => responder ! MessageChunk(f.toCSV()) }
   }
   def sendXML(fruits: Seq[Fruit], responder: ActorRef): Unit = {
     responder ! MessageChunk("<fruits>\n")
-    fruits foreach {c => responder ! MessageChunk(c.toXML().toString + "\n") }
+    fruits foreach {f => responder ! MessageChunk(f.toXML().toString + "\n") }
     responder ! MessageChunk("</fruits>")
   }
 }
