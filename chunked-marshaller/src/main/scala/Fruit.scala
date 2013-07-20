@@ -15,7 +15,7 @@ case class Fruit(val name: String, val kg: Double) {
 trait FruitMarshallers {
   implicit def actorRef: ActorRef
 
-  implicit val ChargingStationsMarshaller =
+  implicit val SeqFruitMarshaller =
     Marshaller.of[Seq[Fruit]](`text/xml`, `text/csv`) { (value: Seq[Fruit], contentType: ContentType, ctx: MarshallingContext) =>
 
       val responder = ctx.startChunkedMessage(HttpEntity(contentType, ""))(actorRef)
