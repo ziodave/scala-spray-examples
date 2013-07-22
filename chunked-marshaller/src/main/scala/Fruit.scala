@@ -3,8 +3,6 @@ import spray.can.Http
 import spray.http._
 import spray.httpx.marshalling.{MarshallingContext, Marshaller}
 import spray.http.MediaTypes._
-import Actor.noSender
-import spray.routing.RequestContext
 import spray.util.SprayActorLogging
 
 /**
