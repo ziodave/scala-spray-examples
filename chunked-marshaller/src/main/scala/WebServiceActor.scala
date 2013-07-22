@@ -1,19 +1,22 @@
-import akka.actor.{ActorLogging, Actor}
+import akka.actor.Actor
 import spray.routing.HttpService
 
-class WebServiceActor extends Actor with ActorLogging with HttpService with FruitMarshallers {
-  implicit def executionContext = actorRefFactory.dispatcher
+class WebServiceActor extends Actor with WebService {
 
   // the HttpService trait defines only one abstract member, which
   // connects the services environment to the enclosing actor or test
   def actorRefFactory = context
 
-  def actorRef = self
-
   // this actor only runs our route, but you could add
   // other things here, like request stream processing,
   // timeout handling or alternative handler registration
   def receive = runRoute(route)
+
+}
+
+trait WebService extends HttpService with FruitMarshallers {
+
+  implicit def executionContext = actorRefFactory.dispatcher
 
   val route = path("fruits") {
     get {
@@ -22,4 +25,5 @@ class WebServiceActor extends Actor with ActorLogging with HttpService with Frui
       }
     }
   }
+
 }
