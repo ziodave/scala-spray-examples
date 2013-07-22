@@ -1,8 +1,11 @@
-import akka.actor.Actor
+import akka.actor.{ActorRef, ActorRefFactory, Props, Actor}
+import spray.can.Http
 import spray.http._
 import spray.httpx.marshalling.{MarshallingContext, Marshaller}
 import spray.http.MediaTypes._
 import Actor.noSender
+import spray.routing.RequestContext
+import spray.util.SprayActorLogging
 
 /**
  *
@@ -15,27 +18,54 @@ case class Fruit(val name: String, val kg: Double) {
 
 trait FruitMarshallers {
 
+  implicit def actorRefFactory: ActorRefFactory
+
   implicit val SeqFruitMarshaller =
-    Marshaller.of[Seq[Fruit]](`text/xml`, `text/csv`) { (value: Seq[Fruit], contentType: ContentType, ctx: MarshallingContext) =>
+    Marshaller.of[Seq[Fruit]](`text/xml`, `text/csv`) { (fruits: Seq[Fruit], contentType: ContentType, ctx: MarshallingContext) =>
 
-      val responder = ctx.startChunkedMessage(HttpEntity(contentType, ""))(noSender)
+      actorRefFactory.actorOf {
+        Props {
+          new Actor with SprayActorLogging {
 
-      contentType.mediaType match {
-        case `text/csv` => sendCSV(value)
-        case `text/xml` => sendXML(value)
-        case _          => // we shouldn't be here
-      }
+            val responder: ActorRef = ctx.startChunkedMessage(HttpEntity(contentType, ""), Some(Ok(-1)))(self)
 
-      responder ! ChunkedMessageEnd
+            sealed case class Ok(seq: Int)
 
-      def sendCSV(fruits: Seq[Fruit]): Unit = {
-        responder ! MessageChunk("name\tkg\n")
-        fruits foreach { f => responder ! MessageChunk(f.toCSV()) }
-      }
-      def sendXML(fruits: Seq[Fruit]): Unit = {
-        responder ! MessageChunk("<fruits>\n")
-        fruits foreach { f => responder ! MessageChunk(f.toXML().toString + "\n") }
-        responder ! MessageChunk("</fruits>")
+            def send = contentType.mediaType match {
+              case `text/csv` => sendCSV
+              case `text/xml` => sendXML
+            }
+
+            def stop() = {
+              responder ! ChunkedMessageEnd
+              context.stop(self)
+            }
+
+            def sendCSV = PartialFunction[Int, Unit] {
+              case -1 =>
+                responder ! MessageChunk("name\tkg\n").withAck(Ok(0))
+              case seq if seq < fruits.length =>
+                responder ! MessageChunk(fruits(seq).toCSV()).withAck(Ok(seq + 1))
+              case _ => stop()
+            }
+
+            def sendXML = PartialFunction[Int, Unit] {
+              case -1 =>
+                responder ! MessageChunk("<fruits>\n").withAck(Ok(0))
+              case seq if seq < fruits.length  =>
+                responder ! MessageChunk(fruits(seq).toXML().toString + "\n").withAck(Ok(seq + 1))
+              case seq if seq == fruits.length =>
+                responder ! MessageChunk("</fruits>").withAck(Ok(seq + 1))
+              case _ => stop()
+            }
+
+            def receive = {
+              case Ok(seq) => send(seq)
+              case ev: Http.ConnectionClosed =>
+                log.warning("Stopping response streaming due to {}", ev)
+            }
+          }
+        }
       }
 
     }
